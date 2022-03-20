@@ -38,13 +38,15 @@ public class Server {
             if (requestLine.isEmpty()) {
                 return;
             }
-
             final var parts = requestLine.split(" ");
             if (parts.length != 3) {
                 return;
             }
-            final var path = parts[1];
-
+            var path = parts[1];
+            // root redirect to index.html
+            if ("/".equals(path)) {
+                path = "/index.html";
+            }
             if (!validPaths.contains(path)) {
                 out.write((
                         "HTTP/1.1 404 Not Found\r\n" +
@@ -55,10 +57,8 @@ public class Server {
                 out.flush();
                 return;
             }
-
             final var filePath = Path.of(".", "public", path);
             final var mimeType = Files.probeContentType(filePath);
-
             if (path.equals("/classic.html")) {
                 final var template = Files.readString(filePath);
                 final var content = template.replace(
