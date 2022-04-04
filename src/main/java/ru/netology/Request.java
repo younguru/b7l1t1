@@ -4,18 +4,23 @@ import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 
 import java.nio.charset.Charset;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Request {
     private final String method;
     private final String path;
-    private final List<NameValuePair> query;
+    private final Map<String, String> query;
     private final List<String> headers;
     private final String body;
 
     public Request(String method, String path, List<String> headers, String body) {
         this.method = method;
-        this.query = URLEncodedUtils.parse(getOnlyQuery(path), Charset.defaultCharset());
+        this.query = new HashMap<>();
+        for (NameValuePair nameValuePair : URLEncodedUtils.parse(getOnlyQuery(path), Charset.defaultCharset())) {
+            this.query.put(nameValuePair.getName(), nameValuePair.getValue());
+        }
         this.path = getOnlyPath(path);
         this.headers = headers;
         this.body = body;
@@ -29,7 +34,11 @@ public class Request {
         return path;
     }
 
-    public List<NameValuePair> getQuery() {
+    public String getQueryParam(String name) {
+        return query.get(name);
+    }
+
+    public Map<String, String> getQueryParams() {
         return query;
     }
 
