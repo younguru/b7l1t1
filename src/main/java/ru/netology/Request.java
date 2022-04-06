@@ -11,7 +11,7 @@ import java.util.*;
 public class Request {
     private final String method;
     private final String path;
-    private final Map<String, String> query;
+    private final Map<String, List<String>> query;
     private final List<String> headers;
     private final String body;
 
@@ -24,7 +24,12 @@ public class Request {
         this.method = method;
         this.query = new HashMap<>();
         for (NameValuePair nameValuePair : URLEncodedUtils.parse(getOnlyQuery(path), Charset.defaultCharset())) {
-            this.query.put(nameValuePair.getName(), nameValuePair.getValue());
+            var paramList = query.get(nameValuePair.getName());
+            if (paramList == null) {
+                paramList = new ArrayList<>();
+            }
+            paramList.add(nameValuePair.getValue());
+            this.query.put(nameValuePair.getName(), paramList);
         }
         this.path = getOnlyPath(path);
         this.headers = headers;
@@ -127,11 +132,11 @@ public class Request {
         return path;
     }
 
-    public String getQueryParam(String name) {
+    public List<String> getQueryParam(String name) {
         return query.get(name);
     }
 
-    public Map<String, String> getQueryParams() {
+    public Map<String, List<String>> getQueryParams() {
         return query;
     }
 
