@@ -1,14 +1,12 @@
 package ru.netology;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.Executors;
 
@@ -16,6 +14,11 @@ public class Server {
     private final List<String>
             validPaths = List.of("/index.html", "/spring.svg", "/spring.png", "/resources.html", "/styles.css", "/app.js", "/links.html",
             "/forms.html", "/classic.html", "/events.html", "/events.js");
+    private final HashMap<List<String>, Handler> handlePaths;
+
+    public Server() {
+        handlePaths = new HashMap<>();
+    }
 
     public void listen(int port, int nThreads) {
         final var threadPool = Executors.newFixedThreadPool(nThreads);
@@ -31,35 +34,29 @@ public class Server {
 
     private void processRequest(Socket socket) {
         try {
-            final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            final var in = new BufferedInputStream(socket.getInputStream());
             final var out = new BufferedOutputStream(socket.getOutputStream());
-            final var requestLine = in.readLine();
-            //  fix NullPointerException: Cannot invoke "String.split(String)" because "requestLine" is null
-            if (requestLine.isEmpty()) {
+
+            var request = Request.getInstance(in);
+            if (request == null) {
+                badRequest(out);
                 return;
             }
-            final var parts = requestLine.split(" ");
-            if (parts.length != 3) {
+
+            Handler handler = handlePaths.get(request.getRequestKey());
+            if (handler != null) {
+                handler.handle(request, out);
                 return;
             }
-            var path = parts[1];
-            // root redirect to index.html
-            if ("/".equals(path)) {
-                path = "/index.html";
-            }
-            if (!validPaths.contains(path)) {
-                out.write((
-                        "HTTP/1.1 404 Not Found\r\n" +
-                                "Content-Length: 0\r\n" +
-                                "Connection: close\r\n" +
-                                "\r\n"
-                ).getBytes());
-                out.flush();
+
+            if (!validPaths.contains(request.getPath())) {
+                badRequest(out);
                 return;
             }
-            final var filePath = Path.of(".", "public", path);
+
+            final var filePath = Path.of(".", "public", request.getPath());
             final var mimeType = Files.probeContentType(filePath);
-            if (path.equals("/classic.html")) {
+            if (request.getPath().equals("/classic.html")) {
                 final var template = Files.readString(filePath);
                 final var content = template.replace(
                         "{time}",
@@ -89,5 +86,19 @@ public class Server {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
+    }
+
+    private void badRequest(BufferedOutputStream out) throws IOException {
+        out.write((
+                "HTTP/1.1 404 Not Found\r\n" +
+                        "Content-Length: 0\r\n" +
+                        "Connection: close\r\n" +
+                        "\r\n"
+        ).getBytes());
+        out.flush();
+    }
+
+    public void addHandler(String method, String path, Handler handler) {
+        handlePaths.put(List.of(method, path), handler);
     }
 }
